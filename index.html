@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>White Cap Territory Planning Assistant — Powered by Claude</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F8FAFC; color: #1E293B; min-height: 100vh; }
+
+  .header { background: #0F172A; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .logo { width: 32px; height: 32px; background: #185FA5; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; font-weight: 700; }
+  .header-title { color: white; font-size: 15px; font-weight: 600; }
+  .header-sub { color: #64748B; font-size: 11px; margin-top: 1px; }
+  .header-badge { background: #1D9E75; color: white; font-size: 10px; padding: 3px 8px; border-radius: 999px; font-weight: 500; }
+
+  .api-bar { background: #1E293B; padding: 10px 24px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #334155; }
+  .api-bar label { color: #94A3B8; font-size: 11px; white-space: nowrap; }
+  .api-bar input { flex: 1; max-width: 420px; padding: 6px 10px; border-radius: 6px; border: 1px solid #334155; background: #0F172A; color: #E2E8F0; font-size: 12px; font-family: monospace; }
+  .api-bar input:focus { outline: none; border-color: #185FA5; }
+  .api-bar .api-note { color: #475569; font-size: 10px; }
+  .api-save { padding: 6px 14px; background: #185FA5; color: white; border: none; border-radius: 6px; font-size: 11px; cursor: pointer; white-space: nowrap; }
+  .api-save:hover { background: #0C447C; }
+  .api-status { font-size: 10px; padding: 3px 8px; border-radius: 999px; }
+  .api-status.ok { background: #E1F5EE; color: #0F6E56; }
+  .api-status.missing { background: #FEF3C7; color: #92400E; }
+
+  .app { display: grid; grid-template-columns: 260px 1fr; height: calc(100vh - 110px); }
+  .sidebar { background: #FFFFFF; border-right: 1px solid #E2E8F0; padding: 14px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
+  .main { display: flex; flex-direction: column; background: #F8FAFC; }
+
+  .sec-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: #94A3B8; margin-bottom: 6px; }
+  .region-hdr { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 6px; cursor: pointer; user-select: none; }
+  .region-hdr:hover { background: #F1F5F9; }
+  .region-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .region-name { font-size: 11px; font-weight: 600; color: #1E293B; }
+  .region-meta { font-size: 9px; color: #94A3B8; margin-left: auto; }
+  .district-list { display: flex; flex-direction: column; gap: 3px; margin-left: 8px; margin-top: 3px; }
+  .d-item { padding: 6px 8px; border-radius: 6px; border: 1px solid #E2E8F0; background: #FFFFFF; cursor: pointer; transition: all .12s; }
+  .d-item:hover { border-color: #CBD5E1; background: #F8FAFC; }
+  .d-item.active { border-color: #185FA5; background: #E6F1FB; }
+  .d-item.active .d-name { color: #0C447C; }
+  .d-name { font-size: 11px; font-weight: 500; color: #1E293B; }
+  .d-meta { font-size: 9px; color: #94A3B8; margin-top: 1px; }
+
+  .top-bar { padding: 12px 18px; border-bottom: 1px solid #E2E8F0; background: white; display: flex; align-items: flex-start; justify-content: space-between; }
+  .top-title { font-size: 14px; font-weight: 600; color: #1E293B; }
+  .top-sub { font-size: 10px; color: #94A3B8; margin-top: 2px; }
+
+  .metrics { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; padding: 10px 18px; border-bottom: 1px solid #E2E8F0; background: white; }
+  .met { background: #F8FAFC; padding: 8px 10px; border-radius: 8px; border: 1px solid #E2E8F0; }
+  .met-l { font-size: 9px; color: #94A3B8; }
+  .met-v { font-size: 15px; font-weight: 600; color: #1E293B; margin-top: 2px; }
+  .met-s { font-size: 9px; color: #94A3B8; margin-top: 1px; }
+
+  .banner { margin: 10px 18px 0; padding: 9px 12px; background: #E6F1FB; border-radius: 8px; border: 1px solid #B5D4F4; font-size: 10.5px; color: #0C447C; line-height: 1.5; }
+  .banner strong { font-weight: 600; }
+
+  .chat-area { flex: 1; overflow-y: auto; padding: 14px 18px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { max-width: 84%; }
+  .msg.user { align-self: flex-end; }
+  .msg.ai { align-self: flex-start; }
+  .msg-lbl { font-size: 10px; color: #94A3B8; margin-bottom: 3px; padding: 0 2px; }
+  .msg.user .msg-lbl { text-align: right; }
+  .bubble { padding: 10px 13px; border-radius: 12px; font-size: 13px; line-height: 1.55; }
+  .msg.user .bubble { background: #185FA5; color: #E6F1FB; border-bottom-right-radius: 3px; }
+  .msg.ai .bubble { background: white; color: #1E293B; border-bottom-left-radius: 3px; border: 1px solid #E2E8F0; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+
+  .qbtns { display: flex; flex-direction: column; gap: 4px; }
+  .qbtn { width: 100%; padding: 6px 9px; border-radius: 6px; border: 1px solid #E2E8F0; background: white; cursor: pointer; font-size: 10.5px; color: #475569; text-align: left; }
+  .qbtn:hover { background: #F1F5F9; color: #1E293B; border-color: #CBD5E1; }
+
+  .input-row { padding: 10px 16px; border-top: 1px solid #E2E8F0; display: flex; gap: 8px; align-items: flex-end; background: white; }
+  .input-row textarea { flex: 1; resize: none; font-size: 13px; padding: 8px 11px; border-radius: 8px; min-height: 38px; max-height: 100px; font-family: inherit; line-height: 1.5; border: 1px solid #E2E8F0; background: #F8FAFC; }
+  .input-row textarea:focus { outline: none; border-color: #185FA5; background: white; }
+  .sbtn { padding: 8px 16px; border-radius: 8px; background: #185FA5; color: white; border: none; cursor: pointer; font-size: 12px; font-weight: 500; height: 38px; }
+  .sbtn:hover { background: #0C447C; }
+  .sbtn:disabled { opacity: .4; cursor: not-allowed; }
+
+  .dot { width: 5px; height: 5px; border-radius: 50%; background: #94A3B8; animation: bounce 1.2s infinite; display: inline-block; margin: 0 1px; }
+  .dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+  @keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
+  .thinking { padding: 10px 13px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">WC</div>
+    <div>
+      <div class="header-title">White Cap Territory Planning Assistant</div>
+      <div class="header-sub">Powered by Claude · Real district data updated Feb 2026 · Built by Jim Nora</div>
+    </div>
+  </div>
+  <div class="header-badge">Live Demo</div>
+</div>
+
+<div class="api-bar" style="display:none">
+  <label>Anthropic API Key:</label>
+  <input type="password" id="api-key" placeholder="sk-ant-..." />
+  <button class="api-save" onclick="saveKey()">Connect</button>
+  <span class="api-status missing" id="api-status">Not connected</span>
+  <span class="api-note">· Your key is stored locally in your browser only · Never sent anywhere except Anthropic's API</span>
+</div>
+
+<div class="app">
+  <div class="sidebar">
+    <div>
+      <div class="sec-label">Regions & Districts</div>
+
+      <div style="margin-bottom:6px">
+        <div class="region-hdr" onclick="toggleRegion('east')">
+          <div class="region-dot" style="background:#1D9E75"></div>
+          <span class="region-name">East</span>
+          <span class="region-meta" id="east-arrow">▾ 9 districts</span>
+        </div>
+        <div class="district-list" id="east-list">
+          <div class="d-item active" onclick="selectD(this,'Atlanta District','East',8,'GM: Zach Saxon · GA branches · Region President: Jason Joice')">
+            <div class="d-name">Atlanta</div><div class="d-meta">GM: Zach Saxon · 8 branches</div>
+          </div>
+          <div class="d-item" onclick="selectD(this,'New York City District','East',14,'GM: Raph McNevin · NY/NJ/CT · Region President: Jason Joice')">
+            <div class="d-name">New York City</div><div class="d-meta">GM: Raph McNevin · 14 branches</div>
+          </div>
+          <div class="d-item" onclick="selectD(this,'Mid Atlantic District','East',17,'GM: Roland Larsen · VA/MD/DE/WV · Region President: Jason Joice')">
+            <div class="d-name">Mid Atlantic</div><div class="d-meta">GM: Roland Larsen · 17 branches</div>
+          </div>
+          <div class="d-item" onclick="selectD(this,'New England District','East',22,'GM: Brian Centofanti · MA/NH/VT/ME/NY · Region President: Jason Joice')">
+            <div class="d-name">New England</div><div class="d-meta">GM: Brian Centofanti · 22 branches</div>
+          </div>
+          <div class="d-item" onclick="selectD(this,'Allegheny District','East',20,'GM: John Hudson · PA/OH/WV/DE · Region President: Jason Joice')">
+            <div class="d-name">Allegheny</div><div class="d-meta">GM: John Hudson · 20 branches</div>
+          </div>
+          <div class="d-item" onclick="selectD(this,'North Carolina District','East',9,'GM: Charles Byrd · NC branches · Region President: Jason Joice')">
+            <div class="d-name">North Carolina</div><div class="d-meta">GM: Charles Byrd · 9 branches</div>
+          </div>
+          <div class="d-item" onclick="selectD(this,'South Carolina District','East',9,'GM: Stuart Bowden · SC/GA/NC · Region President: Jason Joice')">
+            <div class="d-name">South Carolina</div><div class="d-meta">GM: Stuart Bowden · 9 branches</div>
+          </div>
+          <div class="d-item" onclick="selectD(this,'South Florida District','East',13,'GM: Michael Grecz · South FL · Region President: Jason Joice')">
+            <div class="d-name">South Florida</div><div class="d-meta">GM: Michael Grecz · 13 branches</div>
+          </div>
+          <div class="d-item" onclick="selectD(this,'North Florida District','East',9,'GM: Ryan Flashner · North FL · Region President: Jason Joice')">
+            <div class="d-name">North Florida</div><div class="d-meta">GM: Ryan Flashner · 9 branches</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:6px">
+        <div class="region-hdr" onclick="toggleRegion('central')">
+          <div class="region-dot" style="background:#185FA5"></div>
+          <span class="region-name">Central</span>
+          <span class="region-meta" id="central-arrow">▾ 9 districts</span>
+        </div>
+        <div class="district-list" id="central-list">
+          <div class="d-item" onclick="selectD(this,'Chicago District','Central',13,'GM: Brendan Hannigan · IL/WI/IN · Region President: Brian Bilderback')">
+            <div class="d-name">Chicago</div><div class="d-meta">GM: Brendan Hannigan · 13 branches</div>
+          </div>
+          <div class="d-item" onclick="selectD(this,'Midwest District','Central',20,'GM: Brian Cooper · MI/IN/KY/OH · Region President: Brian Bilderback')">
+            <div class="d-name">Midwest</div><div class="d-meta">GM: Brian Cooper · 20 branches</div>
+          </div>
+          <div class="d-item" onclick="selectD(this,'North Central District','Central',21,'GM: Casey Lechtenberg · MN/IA/SD/ND/MO/IL · Region President: Brian Bilderback')">
+            <div class="d-name">North Central</div><div class="d-meta">GM: Casey Lechtenberg · 21 branches</div>
+          </div>
+          <div class="d-item" onclick="selectD(this,'Central Midwest District','Central',15,'GM: Anthony Callura · MO/KS/NE · Region President: Brian Bilderback')">
+            <div class="d-name">Central Midwest</div><div class="d-meta">GM: Anthony Callura · 15 branches</div>
+          </div>
+          <div class="d-item" onclick="selectD(this,'Dallas / Ft. Worth / Oklahoma District','Central',18,'GM: Chris Cass · TX/OK/AR · Region President: Brian Bilderback')">
+            <div class="d-name">Dallas / Ft. Worth / Oklahoma</div><div class="d-meta">GM: Chris Cass · 18 branches</div>
+          </div>
+          <div class="d-item" onclick="selectD(this,'Houston / Gulf Coast District','Central',17,'GM: Jeff Rowan · TX/LA/MS · Region President: Brian Bilderback')">
+            <div class="d-name">Houston / Gulf Coast</div><div class="d-meta">GM: Jeff Rowan · 17 branches</div>
+          </div>
+          <div class="d-item" onclick="selectD(this,'Central / South Texas District','Central',11,'GM: Ben Mayo · Central & South TX · Region President: Brian Bilderback')">
+            <div class="d-name">Central / South Texas</div><div class="d-meta">GM: Ben Mayo · 11 branches</div>
+          </div>
+          <div class="d-item" onclick="selectD(this,'Alabama / Tennessee District','Central',16,'GM: Shawn Milligan · AL/TN/FL/VA/GA · Region President: Brian Bilderback')">
+            <div class="d-name">Alabama / Tennessee</div><div class="d-meta">GM: Shawn Milligan · 16 branches</div>
+          </div>
+          <div class="d-item" onclick="selectD(this,'Midsouth District','Central',16,'GM: Alan Carey · TN/MS/AR/LA · Region President: Brian Bilderback')">
+            <div class="d-name">Midsouth</div><div class="d-meta">GM: Alan Carey · 16 branches</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="region-hdr" onclick="toggleRegion('west')">
+          <div class="region-dot" style="background:#BA7517"></div>
+          <span class="region-name">West</span>
+          <span class="region-meta" id="west-arrow">▾ 8 districts</span>
+        </div>
+        <div class="district-list" id="west-list">
+          <div class="d-item" onclick="selectD(this,'Bay District','West',11,'GM: Dave Harper · SF Bay Area · Region President: Bob Jacoby')">
+            <div class="d-name">Bay (San Francisco)</div><div class="d-meta">GM: Dave Harper · 11 branches</div>
+          </div>
+          <div class="d-item" onclick="selectD(this,'So. Cal. North District','West',15,'GM: John Edily · LA/Ventura/Santa Barbara · Region President: Bob Jacoby')">
+            <div class="d-name">So. Cal. North (LA)</div><div class="d-meta">GM: John Edily · 15 branches</div>
+          </div>
+          <div class="d-item" onclick="selectD(this,'So. Cal. South / Las Vegas District','West',17,'GM: Regis Yoboud · SD/Riverside/IE/Las Vegas · Region President: Bob Jacoby')">
+            <div class="d-name">So. Cal. South / Las Vegas</div><div class="d-meta">GM: Regis Yoboud · 17 branches</div>
+          </div>
+          <div class="d-item" onclick="selectD(this,'Southwest District','West',15,'GM: C.W. Brock · AZ/NM/El Paso · Region President: Bob Jacoby')">
+            <div class="d-name">Southwest (AZ/NM)</div><div class="d-meta">GM: C.W. Brock · 15 branches</div>
+          </div>
+          <div class="d-item" onclick="selectD(this,'No. Cal. / Reno District','West',11,'GM: Patrick LeForge · NorCal/Nevada · Region President: Bob Jacoby')">
+            <div class="d-name">No. Cal. / Reno</div><div class="d-meta">GM: Patrick LeForge · 11 branches</div>
+          </div>
+          <div class="d-item" onclick="selectD(this,'Pacific Northwest District','West',14,'GM: Nate Wiggins · WA/OR · Region President: Bob Jacoby')">
+            <div class="d-name">Pacific Northwest</div><div class="d-meta">GM: Nate Wiggins · 14 branches</div>
+          </div>
+          <div class="d-item" onclick="selectD(this,'Rockies District','West',16,'GM: Tony Barbour · CO/UT/WY/MT/ID · Region President: Bob Jacoby')">
+            <div class="d-name">Rockies</div><div class="d-meta">GM: Tony Barbour · 16 branches</div>
+          </div>
+          <div class="d-item" onclick="selectD(this,'Hawaii District','West',4,'GM: Open (Vacancy) · 4 branches · Region President: Bob Jacoby')">
+            <div class="d-name">Hawaii</div><div class="d-meta">GM: Open (Vacancy) · 4 branches</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="sec-label">Quick prompts</div>
+      <div class="qbtns">
+        <button class="qbtn" onclick="qp('Which White Cap districts are the best candidates for a Claude CoWork pilot, and why?')">🎯 Best pilot candidates</button>
+        <button class="qbtn" onclick="qp('How many hours per week is this district losing to manual data lookup, and what is the annual ROI of a Claude pilot?')">⏱ ROI for this district</button>
+        <button class="qbtn" onclick="qp('Walk me through a realistic day in the life of an account manager in this district — before and after Claude CoWork')">👤 AM day-in-the-life</button>
+        <button class="qbtn" onclick="qp('What objections would the GM in this district likely raise about an AI pilot, and how should I respond?')">💬 Objection prep</button>
+        <button class="qbtn" onclick="qp('Compare the East, Central, and West regions — which has the highest AI deployment opportunity for Anthropic?')">📊 Regional comparison</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="top-bar">
+      <div>
+        <div class="top-title" id="t-title">Atlanta District — East Region</div>
+        <div class="top-sub" id="t-sub">GM: Zach Saxon · Branches across GA · Region President: Jason Joice</div>
+      </div>
+    </div>
+
+    <div class="metrics">
+      <div class="met">
+        <div class="met-l">Branches</div>
+        <div class="met-v" id="m-br">8</div>
+        <div class="met-s" id="m-br-s">Atlanta district</div>
+      </div>
+      <div class="met">
+        <div class="met-l">Est. AMs</div>
+        <div class="met-v" id="m-am">~40</div>
+        <div class="met-s" id="m-am-s">~5 AMs per branch</div>
+      </div>
+      <div class="met">
+        <div class="met-l">Hrs lost / week</div>
+        <div class="met-v" id="m-hrs">~280 hrs</div>
+        <div class="met-s" id="m-hrs-s">40 AMs × 7 hrs manual lookup</div>
+      </div>
+      <div class="met">
+        <div class="met-l">Annual recoverable</div>
+        <div class="met-v" id="m-ann">~14K hrs</div>
+        <div class="met-s" id="m-ann-s">at 50 working weeks/year</div>
+      </div>
+    </div>
+
+    <div class="banner">
+      <strong>Live Claude-powered demo — real White Cap district data (Feb 2026).</strong> 22 districts across East, Central & West. Select any district to analyze it, or use the quick prompts. Built by Jim Nora to demonstrate AI-powered territory planning for industrial distribution.
+    </div>
+
+    <div class="chat-area" id="chat-area">
+      <div class="msg ai">
+        <div class="msg-lbl">Territory AI (Claude)</div>
+        <div class="bubble">Hi — I'm a Claude-powered territory planning assistant built specifically for White Cap Construction Supply.<br><br>I'm loaded with White Cap's real district structure as of February 2026 — 3 regions, 22 districts, 520+ branches, and the actual GM names for every territory.<br><br>You're viewing <strong>Atlanta District</strong> under East Region President Jason Joice, GM Zach Saxon. With ~40 account managers across 8 branches, this district is losing an estimated <strong>280 hours per week</strong> to manual data lookup that Claude CoWork would eliminate.<br><br>Connect your Anthropic API key above to activate, then ask me anything or try a quick prompt on the left.</div>
+      </div>
+    </div>
+
+    <div class="input-row">
+      <textarea id="inp" placeholder="Ask about any district, pilot ROI, AM workflows, objection handling..." rows="1"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send();}"
+        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
+      <button class="sbtn" id="sbtn" onclick="send()">Send ↑</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SYSTEM = `You are a Claude-powered territory planning assistant built specifically for White Cap Construction Supply — a $6B industrial distributor with 520+ branches, 400,000+ SKUs, ~750 account managers, and 200,000+ customers nationally.
+
+WHITE CAP REAL ORG STRUCTURE (Feb 2026):
+EAST — President: Jason Joice | VP Sales: David Steiner
+Districts: Atlanta (GM: Zach Saxon, 8 branches), New York City (GM: Raph McNevin, 14), Mid Atlantic (GM: Roland Larsen, 17), New England (GM: Brian Centofanti, 22), Allegheny (GM: John Hudson, 20), North Carolina (GM: Charles Byrd, 9), South Carolina (GM: Stuart Bowden, 9), South Florida (GM: Michael Grecz, 13), North Florida (GM: Ryan Flashner, 9)
+
+CENTRAL — President: Brian Bilderback | VP Sales: Shane Louthan
+Districts: Chicago (GM: Brendan Hannigan, 13 branches), Midwest (GM: Brian Cooper, 20), North Central (GM: Casey Lechtenberg, 21), Central Midwest (GM: Anthony Callura, 15), Dallas/FW/Oklahoma (GM: Chris Cass, 18), Houston/Gulf Coast (GM: Jeff Rowan, 17), Central/South Texas (GM: Ben Mayo, 11), Alabama/Tennessee (GM: Shawn Milligan, 16), Midsouth (GM: Alan Carey, 16)
+
+WEST — President: Bob Jacoby | VP Sales: Andy Denerson
+Districts: Bay/SF (GM: Dave Harper, 11 branches), So Cal North/LA (GM: John Edily, 15), So Cal South/Las Vegas (GM: Regis Yoboud, 17), Southwest AZ/NM (GM: C.W. Brock, 15), No Cal/Reno (GM: Patrick LeForge, 11), Pacific Northwest (GM: Nate Wiggins, 14), Rockies (GM: Tony Barbour, 16), Hawaii (GM: Open/Vacancy, 4)
+
+EXECUTIVE TEAM: CEO Alan Sollenberger, CCO Paige Naftel (he/him), CIO Randy Fox, CFO Tim Murphy
+TECH STACK: Salesforce CRM, Microsoft Dynamics ERP, Oracle Cloud, GAINS supply chain, Shopify
+
+ROI MODEL:
+- ~750 AMs nationally, ~65 accounts per AM, avg $30K annual spend per account
+- AMs lose ~7 hrs/week to manual lookup (pricing in Dynamics, availability from suppliers, history in Salesforce)
+- Claude CoWork + MCP eliminates this via real-time system integration
+- Pilot: 30 AMs across 3 districts = ~$205K productivity value (90 days) + $2.93M incremental revenue (annual, 5% wallet share improvement)
+- National: $19.7M productivity + $73.1M incremental revenue + $60M+ retained revenue = $152M+ annually
+
+Active district: {{DISTRICT}}
+
+Be specific, data-driven, and use real White Cap context. Keep responses under 200 words unless asked for full analysis.`;
+
+let current = 'Atlanta District';
+let history = [];
+let loading = false;
+let apiKey = localStorage.getItem('wc_api_key') || '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';
+const regions = { east: true, central: true, west: true };
+
+// Init API key display
+if (apiKey) {
+  document.getElementById('api-key').value = apiKey;
+  document.getElementById('api-status').textContent = 'Connected ✓';
+  document.getElementById('api-status').className = 'api-status ok';
+}
+
+function saveKey() {
+  const key = document.getElementById('api-key').value.trim();
+  if (!key) return;
+  apiKey = key;
+  localStorage.setItem('wc_api_key', key);
+  document.getElementById('api-status').textContent = 'Connected ✓';
+  document.getElementById('api-status').className = 'api-status ok';
+}
+
+function toggleRegion(r) {
+  regions[r] = !regions[r];
+  document.getElementById(r+'-list').style.display = regions[r] ? 'flex' : 'none';
+  document.getElementById(r+'-list').style.flexDirection = 'column';
+  const arrow = document.getElementById(r+'-arrow');
+  arrow.textContent = (regions[r] ? '▾ ' : '▸ ') + arrow.textContent.slice(2);
+}
+
+function selectD(el, name, region, branches, sub) {
+  document.querySelectorAll('.d-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  current = name;
+  document.getElementById('t-title').textContent = name + ' — ' + region + ' Region';
+  document.getElementById('t-sub').textContent = sub;
+  const ams = branches * 5;
+  document.getElementById('m-br').textContent = branches;
+  document.getElementById('m-br-s').textContent = name;
+  document.getElementById('m-am').textContent = '~' + ams;
+  document.getElementById('m-am-s').textContent = '~5 AMs per branch avg';
+  document.getElementById('m-hrs').textContent = '~' + (ams * 7).toLocaleString() + ' hrs';
+  document.getElementById('m-hrs-s').textContent = ams + ' AMs × 7 hrs manual lookup';
+  document.getElementById('m-ann').textContent = '~' + Math.round(ams * 7 * 50 / 1000) + 'K hrs';
+  document.getElementById('m-ann-s').textContent = 'at 50 working weeks/year';
+}
+
+function qp(t) { document.getElementById('inp').value = t; send(); }
+
+function appendMsg(role, html) {
+  const area = document.getElementById('chat-area');
+  const wrap = document.createElement('div'); wrap.className = 'msg ' + role;
+  const lbl = document.createElement('div'); lbl.className = 'msg-lbl';
+  lbl.textContent = role === 'user' ? 'You' : 'Territory AI (Claude)';
+  const bub = document.createElement('div'); bub.className = 'bubble'; bub.innerHTML = html;
+  wrap.appendChild(lbl); wrap.appendChild(bub); area.appendChild(wrap);
+  area.scrollTop = area.scrollHeight;
+}
+
+function showThinking() {
+  const area = document.getElementById('chat-area');
+  const wrap = document.createElement('div'); wrap.className = 'msg ai'; wrap.id = 'thinking';
+  const lbl = document.createElement('div'); lbl.className = 'msg-lbl'; lbl.textContent = 'Territory AI (Claude)';
+  const bub = document.createElement('div'); bub.className = 'bubble thinking';
+  bub.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+  wrap.appendChild(lbl); wrap.appendChild(bub); area.appendChild(wrap);
+  area.scrollTop = area.scrollHeight;
+}
+
+async function send() {
+  if (loading) return;
+  if (!apiKey) { alert('Please enter your Anthropic API key above and click Connect.'); return; }
+  const inp = document.getElementById('inp');
+  const text = inp.value.trim(); if (!text) return;
+  appendMsg('user', text.replace(/</g,'&lt;').replace(/>/g,'&gt;'));
+  history.push({ role: 'user', content: text });
+  inp.value = ''; inp.style.height = 'auto';
+  loading = true; document.getElementById('sbtn').disabled = true; showThinking();
+  const sys = SYSTEM.replace('{{DISTRICT}}', current);
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-calls': 'true' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, system: sys, messages: history })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    const reply = data.content?.map(b => b.text || '').join('') || 'Unable to generate a response.';
+    history.push({ role: 'assistant', content: reply });
+    document.getElementById('thinking')?.remove();
+    const fmt = reply.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n- /g,'<br>• ').replace(/\n/g,'<br>');
+    appendMsg('ai', fmt);
+  } catch(e) {
+    document.getElementById('thinking')?.remove();
+    appendMsg('ai', 'Error: ' + (e.message || 'Connection failed. Check your API key and try again.'));
+  }
+  loading = false; document.getElementById('sbtn').disabled = false;
+}
+</script>
+</body>
+</html>
